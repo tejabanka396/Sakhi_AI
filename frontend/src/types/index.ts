@@ -90,6 +90,8 @@ export interface ChatResponse {
   conversation_id: string;
   message_id: string;
   response_id?: string;
+  voice_id?: string;
+  gender?: string;
   sender: 'assistant';
   audio_base64?: string | null;
   audio_url?: string | null;

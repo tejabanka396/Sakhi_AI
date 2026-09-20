@@ -1,11 +1,15 @@
+import time
+import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
+from app.database.database import SessionLocal
 from app.database.models import User, FriendProfile, Setting, Conversation, Message, Memory
 from app.ai.gemini import gemini_provider
 from app.ai.prompts import build_sakhi_system_prompt
 from app.ai.memory import extract_memory_from_message
 from app.voice.sanitizer import sanitize_text_for_tts
+from app.voice.tts import get_voice_for_gender
 
 logger = logging.getLogger("sakhi_ai.chat_service")
 
@@ -21,7 +25,9 @@ class ChatService:
         conversation_id: Optional[str] = None,
         input_type: str = "text"
     ) -> Dict[str, Any]:
-        # 1. Get or create conversation
+        t_start = time.perf_counter()
+
+        # 1. Get or create conversation and save user message in a single consolidated commit
         conversation = None
         is_new_conversation = False
 
@@ -37,11 +43,9 @@ class ChatService:
                 title="New Conversation"
             )
             db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
+            db.flush()
             is_new_conversation = True
 
-        # 2. Save User Message
         user_message = Message(
             conversation_id=conversation.id,
             sender="user",
@@ -51,41 +55,34 @@ class ChatService:
         db.add(user_message)
         db.commit()
 
-        # 3. Check for Long-Term Memory Extraction
-        memory_candidate = extract_memory_from_message(message_text)
-        if memory_candidate:
-            mem_text, mem_cat = memory_candidate
-            # Avoid duplicate memory
-            existing_mem = db.query(Memory).filter_by(
-                user_id=user.id,
-                memory_text=mem_text
-            ).first()
-            if not existing_mem:
-                new_memory = Memory(
-                    user_id=user.id,
-                    memory_text=mem_text,
-                    category=mem_cat
-                )
-                db.add(new_memory)
-                db.commit()
-                logger.info(f"Saved memory for user {user.id}: {mem_text}")
-
-        # 4. Fetch Friend Profile & Settings
+        # 2. Fetch Friend Profile & Settings
         friend_profile = db.query(FriendProfile).filter_by(user_id=user.id).first()
         friend_name = friend_profile.friend_name if friend_profile else "Sakhi"
         gender = friend_profile.gender if friend_profile else "female"
         personality = friend_profile.personality if friend_profile else "friendly"
-        voice_id = friend_profile.voice_id if friend_profile else "female_friendly"
+        # Gender is the SINGLE SOURCE OF TRUTH for companion voice
+        voice_id = get_voice_for_gender(gender)
 
         setting = db.query(Setting).filter_by(user_id=user.id).first()
         lang_pref = setting.language_preference if setting else "auto"
         conv_mode = setting.default_mode if setting else "talk"
 
-        # 5. Fetch User Memories for Context
+        # 3. Fetch User Memories for Context
         memories = db.query(Memory).filter_by(user_id=user.id).order_by(Memory.created_at.desc()).limit(10).all()
         memory_texts = [m.memory_text for m in memories]
 
-        # 6. Detect Language and Build System Prompt
+        # 4. Fetch Recent Messages for Context (up to last 12 messages)
+        recent_messages = db.query(Message).filter_by(
+            conversation_id=conversation.id
+        ).order_by(Message.created_at.desc()).limit(12).all()
+        recent_messages.reverse()
+
+        formatted_messages: List[Dict[str, str]] = []
+        for msg in recent_messages:
+            role = "user" if msg.sender == "user" else "assistant"
+            formatted_messages.append({"role": role, "content": msg.content})
+
+        # 5. Detect Language and Build System Prompt
         from app.ai.prompts import detect_input_language
         detected_lang = lang_pref if lang_pref in ["telugu", "english"] else detect_input_language(message_text)
 
@@ -101,27 +98,23 @@ class ChatService:
             voice_id=voice_id
         )
 
-        # 7. Fetch Recent Messages for Context (up to last 12 messages)
-        recent_messages = db.query(Message).filter_by(
-            conversation_id=conversation.id
-        ).order_by(Message.created_at.desc()).limit(12).all()
-        recent_messages.reverse()
+        t_db_ready = time.perf_counter()
+        db_prep_ms = (t_db_ready - t_start) * 1000
 
-        formatted_messages: List[Dict[str, str]] = []
-        for msg in recent_messages:
-            role = "user" if msg.sender == "user" else "assistant"
-            formatted_messages.append({"role": role, "content": msg.content})
-
-        # 8. Generate AI Response
+        # 6. Generate AI Response via Gemini
+        t_gemini_start = time.perf_counter()
         ai_reply = await self.provider.generate_response(
             system_instruction=system_instruction,
             messages=formatted_messages
         )
+        gemini_ms = (time.perf_counter() - t_gemini_start) * 1000
 
+        # 7. Response Processing & Sanitization
+        t_post_start = time.perf_counter()
         display_text = ai_reply
         speech_text = sanitize_text_for_tts(display_text)
 
-        # 9. Save Assistant Message (Must store display_text with emojis for chat history)
+        # 8. Save Assistant Message
         assistant_message = Message(
             conversation_id=conversation.id,
             sender="assistant",
@@ -131,27 +124,50 @@ class ChatService:
         db.add(assistant_message)
         db.commit()
         db.refresh(assistant_message)
+        post_ms = (time.perf_counter() - t_post_start) * 1000
+        total_ms = (time.perf_counter() - t_start) * 1000
 
-        # 10. Non-blocking Background Title Generation (Optimizes response latency)
-        async def _update_title_background(conv_id: str, u_msg: str, a_reply: str):
+        logger.info(
+            f"[CHAT_LATENCY] db_prep_ms={db_prep_ms:.1f} gemini_ms={gemini_ms:.1f} "
+            f"post_ms={post_ms:.1f} total_ms={total_ms:.1f} voice_id={voice_id} gender={gender}"
+        )
+
+        # 9. Non-blocking Background Tasks: Memory extraction and Title generation
+        # These operations do NOT block sending the response and starting TTS playback!
+        async def _run_background_tasks(u_id: str, conv_id: str, u_msg: str, a_reply: str, is_new: bool):
+            bg_db = None
             try:
-                title = await self.provider.generate_title(u_msg, a_reply)
-                if title and title != "New Conversation":
-                    from app.database.database import SessionLocal
-                    bg_db = SessionLocal()
-                    try:
+                bg_db = SessionLocal()
+                # A. Memory Candidate Check & Persistence
+                memory_candidate = extract_memory_from_message(u_msg)
+                if memory_candidate:
+                    mem_text, mem_cat = memory_candidate
+                    existing = bg_db.query(Memory).filter_by(
+                        user_id=u_id,
+                        memory_text=mem_text
+                    ).first()
+                    if not existing:
+                        bg_db.add(Memory(user_id=u_id, memory_text=mem_text, category=mem_cat))
+                        bg_db.commit()
+                        logger.info(f"Background memory saved for user {u_id}")
+
+                # B. Conversation Title Generation
+                if is_new:
+                    title = await self.provider.generate_title(u_msg, a_reply)
+                    if title and title != "New Conversation":
                         c = bg_db.query(Conversation).filter_by(id=conv_id).first()
                         if c:
                             c.title = title
                             bg_db.commit()
-                    finally:
-                        bg_db.close()
-            except Exception as te:
-                logger.debug(f"Background title generation error: {te}")
+            except Exception as bg_err:
+                logger.debug(f"Background chat tasks error: {bg_err}")
+            finally:
+                if bg_db:
+                    bg_db.close()
 
-        if is_new_conversation or conversation.title == "New Conversation":
-            import asyncio
-            asyncio.create_task(_update_title_background(conversation.id, message_text, ai_reply))
+        asyncio.create_task(
+            _run_background_tasks(user.id, conversation.id, message_text, ai_reply, is_new_conversation)
+        )
 
         return {
             "reply": display_text,
@@ -160,6 +176,8 @@ class ChatService:
             "conversation_id": conversation.id,
             "message_id": assistant_message.id,
             "response_id": assistant_message.id,
+            "voice_id": voice_id,
+            "gender": gender,
             "title": conversation.title,
             "sender": "assistant",
             "language": detected_lang

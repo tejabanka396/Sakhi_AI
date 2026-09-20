@@ -44,6 +44,24 @@ export const Home: React.FC = () => {
   const voiceId = getVoiceForGender(friendProfile?.gender);
   const alwaysSpeak = settings?.always_speak ?? true;
 
+  // Preload character avatar images for seamless instant visual transitions
+  useEffect(() => {
+    const imagesToPreload = [
+      '/characters/female_idle.jpg',
+      '/characters/female_thinking.jpg',
+      '/characters/female_speaking.jpg',
+      '/characters/female_listening.jpg',
+      '/characters/male_idle.jpg',
+      '/characters/male_thinking.jpg',
+      '/characters/male_speaking.jpg',
+      '/characters/male_listening.jpg',
+    ];
+    imagesToPreload.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
   // Show floating popup during AI speech if chat is open or user wants the floating popup experience (Requirement 8)
   useEffect(() => {
     if (isSpeaking) {
@@ -92,11 +110,12 @@ export const Home: React.FC = () => {
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Speak response out loud through TTS with response_id deduplication
+      // Speak response out loud through TTS with response_id deduplication and authoritative voice_id
+      const targetVoiceId = res.voice_id || voiceId || getVoiceForGender(friendProfile?.gender);
       await speakResponse({
         response_id: res.response_id || res.message_id,
         speech_text: res.speech_text || '',
-        voiceId
+        voiceId: targetVoiceId
       });
     } catch (err: any) {
       setFriendState('error');
@@ -140,10 +159,11 @@ export const Home: React.FC = () => {
       setMessages((prev) => [...prev, assistantMsg]);
 
       if (alwaysSpeak) {
+        const targetVoiceId = res.voice_id || voiceId || getVoiceForGender(friendProfile?.gender);
         await speakResponse({
           response_id: res.response_id || res.message_id,
           speech_text: res.speech_text || '',
-          voiceId
+          voiceId: targetVoiceId
         });
       } else {
         setFriendState('idle');

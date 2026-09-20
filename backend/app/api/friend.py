@@ -68,12 +68,9 @@ async def update_friend_profile(
         profile.friend_name = payload.friend_name.strip()
     if payload.gender is not None:
         profile.gender = payload.gender
-        # Automatically assign voice based on chosen character gender
-        profile.voice_id = get_voice_for_gender(payload.gender)
-    elif payload.voice_id is not None:
-        profile.voice_id = migrate_voice_id(payload.voice_id, profile.gender)
-    else:
-        profile.voice_id = get_voice_for_gender(profile.gender)
+
+    # Enforce companion gender as the SINGLE SOURCE OF TRUTH
+    profile.voice_id = get_voice_for_gender(profile.gender)
 
     if payload.personality is not None:
         profile.personality = payload.personality

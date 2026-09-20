@@ -12,6 +12,9 @@ class ChatResponse(BaseModel):
     speech_text: Optional[str] = None
     conversation_id: str
     message_id: str
+    response_id: Optional[str] = None
+    voice_id: Optional[str] = None
+    gender: Optional[str] = None
     title: Optional[str] = None
     sender: str = "assistant"
     language: Optional[str] = "auto"

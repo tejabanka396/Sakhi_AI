@@ -57,6 +57,14 @@ export const SettingsPage: React.FC = () => {
     }
   }, [isSpeaking]);
 
+  useEffect(() => {
+    if (friendProfile) {
+      if (friendProfile.friend_name) setFriendName(friendProfile.friend_name);
+      if (friendProfile.gender) setGender(friendProfile.gender);
+      if (friendProfile.personality) setPersonality(friendProfile.personality);
+    }
+  }, [friendProfile]);
+
   const currentVoiceId = getVoiceForGender(gender);
   const isCurrentPreviewPlaying = previewingVoice === currentVoiceId;
   const isCurrentPreviewLoading = loadingVoice === currentVoiceId;

@@ -240,6 +240,7 @@ class AudioManager {
     this.activeItem = item;
     const currentSeq = ++this.generationSeq;
 
+    const tStart = performance.now();
     this.setState('GENERATING');
 
     try {
@@ -255,6 +256,8 @@ class AudioManager {
         // Synthesize response speech text
         audioBlob = await voiceService.synthesize(item.text, item.voiceId, item.language);
       }
+
+      const tFetch = performance.now();
 
       // Check if cancelled/superseded while fetching
       if (currentSeq !== this.generationSeq) {
@@ -278,6 +281,11 @@ class AudioManager {
         this.initWebAudio();
 
         await this.audio.play();
+        const tPlay = performance.now();
+        console.info(
+          `[AudioManager] TTS playback started in ${(tPlay - tStart).toFixed(1)}ms ` +
+          `(synthesis: ${(tFetch - tStart).toFixed(1)}ms) for response_id=${item.id} voice_id=${item.voiceId}`
+        );
 
         // Check again if cancelled immediately after play start
         if (currentSeq !== this.generationSeq) {

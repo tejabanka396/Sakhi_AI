@@ -35,6 +35,9 @@ async def send_chat_message(
             speech_text=result.get("speech_text"),
             conversation_id=result["conversation_id"],
             message_id=result["message_id"],
+            response_id=result.get("response_id", result["message_id"]),
+            voice_id=result.get("voice_id"),
+            gender=result.get("gender"),
             title=result.get("title"),
             sender="assistant",
             language=result.get("language", "auto")

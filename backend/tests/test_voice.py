@@ -250,3 +250,72 @@ def test_chat_two_tier_response_and_storage():
         tts_clean = sanitize_text_for_tts(data["speech_text"])
         assert "❤️" not in tts_clean
         assert tts_clean == "That's awesome! Deadlock ante oka situation."
+
+
+def test_male_and_female_voice_profiles_distinct():
+    """
+    Verify male and female voices map to distinct, exact provider voices:
+    - Female: te-IN-ShrutiNeural (Telugu), en-IN-NeerjaNeural (English)
+    - Male: te-IN-MohanNeural (Telugu), en-IN-PrabhatNeural (English)
+    """
+    female_prof = tts_service.resolve_profile("female_voice")
+    male_prof = tts_service.resolve_profile("male_voice")
+
+    assert female_prof["gender"] == "female"
+    assert female_prof["te_voice"] == "te-IN-ShrutiNeural"
+    assert female_prof["en_voice"] == "en-IN-NeerjaNeural"
+
+    assert male_prof["gender"] == "male"
+    assert male_prof["te_voice"] == "te-IN-MohanNeural"
+    assert male_prof["en_voice"] == "en-IN-PrabhatNeural"
+
+    # Distinct underlying provider voices
+    assert female_prof["te_voice"] != male_prof["te_voice"]
+    assert female_prof["en_voice"] != male_prof["en_voice"]
+
+
+def test_chat_response_includes_authoritative_voice_and_gender():
+    """
+    Verify /api/chat returns authoritative voice_id, gender, and response_id.
+    """
+    with patch.object(chat_service.provider, "generate_response", return_value="Namaskaram! Nenu bagunnanu."):
+        res = client.post("/api/chat", json={
+            "message": "Ela unnavu?",
+            "input_type": "text"
+        })
+        assert res.status_code == 200
+        data = res.json()
+        assert "voice_id" in data
+        assert "gender" in data
+        assert "response_id" in data
+        assert data["voice_id"] in ["female_voice", "male_voice"]
+        assert data["gender"] in ["female", "male"]
+        assert data["response_id"] == data["message_id"]
+
+
+def test_male_companion_never_falls_back_to_female_gtts():
+    """
+    Ensure that when Edge-TTS fails, a male companion returns empty bytes
+    instead of silently falling back to a female voice from gTTS.
+    """
+    with patch("edge_tts.Communicate", side_effect=Exception("Simulated Edge-TTS outage")):
+        male_audio = tts_service.synthesize("Hello friend", voice_id="male_voice")
+        assert male_audio == b"", "Male companion must NOT use female gTTS fallback!"
+
+        # Female companion safely falls back to female gTTS
+        female_audio = tts_service.synthesize("Hello friend", voice_id="female_voice")
+        assert len(female_audio) > 500, "Female companion can use female gTTS fallback"
+
+
+@pytest.mark.asyncio
+async def test_edge_tts_produces_distinct_male_female_audio():
+    """
+    Verify live/real Edge-TTS synthesis produces distinct non-empty audio for male vs female.
+    """
+    female_te = await tts_service.synthesize_async("నమస్కారం, బాగున్నారా?", voice_id="female_voice", language="te")
+    male_te = await tts_service.synthesize_async("నమస్కారం, బాగున్నారా?", voice_id="male_voice", language="te")
+
+    assert len(female_te) > 1000
+    assert len(male_te) > 1000
+    assert female_te != male_te, "Telugu male and female audio bytes must not be identical!"
+

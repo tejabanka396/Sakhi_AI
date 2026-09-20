@@ -59,10 +59,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health", tags=["System"])
 async def health_check():
     db_status = "untested"
+    db_info = {}
     try:
-        from app.database.database import check_db_connection
+        from app.database.database import check_db_connection, get_database_migration_info
         is_connected = check_db_connection()
         db_status = "connected" if is_connected else "disconnected"
+        db_info = get_database_migration_info()
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
         db_status = "disconnected"
@@ -72,8 +74,11 @@ async def health_check():
         "service": "Sakhi AI Backend",
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
-        "database": db_status
+        "database": db_status,
+        "alembic_revision": db_info.get("alembic_revision"),
+        "tables": db_info.get("tables", []),
     }
+
 
 @app.get("/", tags=["System"])
 async def root():

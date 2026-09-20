@@ -255,3 +255,37 @@ def check_db_connection() -> bool:
     except Exception as e:
         logger.warning(f"Database connection check returned: {e}")
         return False
+
+def get_database_migration_info() -> Dict[str, Any]:
+    """
+    Safely inspects existing tables and current Alembic revision in the connected database.
+    Never exposes secrets, credentials, or connection strings.
+    """
+    try:
+        from sqlalchemy import inspect as sa_inspect
+        with engine.connect() as connection:
+            inspector = sa_inspect(connection)
+            tables = sorted(inspector.get_table_names())
+            
+            revision = None
+            if "alembic_version" in tables:
+                result = connection.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                if result:
+                    revision = result[0]
+            
+            return {
+                "connected": True,
+                "tables": tables,
+                "table_count": len(tables),
+                "alembic_revision": revision,
+            }
+    except Exception as e:
+        logger.warning(f"Failed to inspect database migration info: {e}")
+        return {
+            "connected": False,
+            "error": str(e),
+            "tables": [],
+            "table_count": 0,
+            "alembic_revision": None,
+        }
+

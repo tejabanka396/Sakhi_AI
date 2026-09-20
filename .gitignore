@@ -39,3 +39,10 @@ temp_audio/
 # Local TTS test audio
 test_*.mp3
 backend/tests/*.mp3
+
+# Certificates and Keys
+*.pem
+*.crt
+*.key
+*.cer
+!backend/certs/README.md

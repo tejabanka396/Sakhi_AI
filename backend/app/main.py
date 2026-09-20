@@ -16,6 +16,11 @@ logger = logging.getLogger("sakhi_ai")
 async def lifespan(app: FastAPI):
     logger.info("🌸 Sakhi AI Backend is starting up...")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
+    try:
+        from app.database.database import log_ssl_startup_diagnostic
+        log_ssl_startup_diagnostic()
+    except Exception as e:
+        logger.warning(f"Could not execute database SSL startup diagnostic: {e}")
     yield
     logger.info("🌸 Sakhi AI Backend shutdown complete.")
 

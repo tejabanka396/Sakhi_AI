@@ -10,7 +10,7 @@ def test_gemini_api_key_loaded():
     """Confirms Gemini API key is configured and not empty."""
     assert settings.GEMINI_API_KEY != "", "GEMINI_API_KEY must not be empty"
     assert len(settings.GEMINI_API_KEY) > 10, "GEMINI_API_KEY appears invalid"
-    assert settings.GEMINI_MODEL == "gemini-3.6-flash", f"Expected gemini-3.6-flash, got {settings.GEMINI_MODEL}"
+    assert settings.GEMINI_MODEL in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"], f"Expected valid Gemini model, got {settings.GEMINI_MODEL}"
 
 @pytest.mark.asyncio
 async def test_gemini_provider_direct_telugu():

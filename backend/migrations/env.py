@@ -30,6 +30,12 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
+    try:
+        from app.database.database import log_ssl_startup_diagnostic
+        log_ssl_startup_diagnostic()
+    except Exception:
+        pass
+
     with engine.connect() as connection:
         context.configure(
             connection=connection, target_metadata=target_metadata

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
         default="mysql+pymysql://root:root@localhost:3306/sakhi_ai?charset=utf8mb4",
         description="MySQL connection string with utf8mb4"
     )
+    MYSQL_SSL_CA: str = Field(
+        default="",
+        description="Path to CA certificate file or raw PEM certificate content for MySQL SSL verification"
+    )
+    DATABASE_SSL_CA: str = Field(
+        default="",
+        description="Alias for MYSQL_SSL_CA"
+    )
 
     # JWT Authentication
     JWT_SECRET: str = "sakhi_ai_super_secret_jwt_key_please_change_in_production_32chars_minimum"

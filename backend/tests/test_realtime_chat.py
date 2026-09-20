@@ -127,3 +127,47 @@ def test_tts_sanitizer_removes_all_urls_and_sources():
     assert "Sources:" not in cleaned
     assert "[1, 2]" not in cleaned
     assert "Here is the latest news" in cleaned
+
+def test_chat_today_gold_price_end_to_end():
+    """Verify 'today gold price in India' invokes web search and produces grounded response."""
+    from app.services.query_router import query_router, QueryType
+    
+    # 1. Assert Router directly
+    route_res = query_router.route("today gold price in India")
+    assert route_res.query_type == QueryType.WEB_SEARCH, f"Expected WEB_SEARCH, got {route_res.query_type}"
+    assert "gold" in route_res.search_query.lower()
+
+    # 2. End-to-end API test with mocked web search
+    mock_search_res = SearchResponse(
+        query="today gold price India",
+        results=[
+            SearchResultItem(
+                title="Gold Rate Today in India - 22K & 24K Gold Price",
+                url="https://www.goodreturns.in/gold-rates/",
+                domain="goodreturns.in",
+                snippet="Today 24 carat gold rate in India is Rs 7,450 per gram and 22 carat gold is Rs 6,830 per gram."
+            )
+        ],
+        provider="tavily",
+        searched=True,
+        timestamp="2026-09-20T14:30:00+05:30"
+    )
+
+    with patch("app.services.web_search.web_search_service.search", new_callable=AsyncMock) as mock_search:
+        mock_search.return_value = mock_search_res
+
+        response = client.post("/api/chat", json={
+            "message": "today gold price in India",
+            "input_type": "text"
+        })
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify web search service was invoked
+        assert mock_search.called
+        assert data.get("searched") is True
+        assert data.get("sources") is not None
+        assert len(data["sources"]) == 1
+        assert data["sources"][0]["domain"] == "goodreturns.in"
+        assert len(data["reply"]) > 0
+

@@ -138,8 +138,12 @@ class ChatService:
             t_search_start = time.perf_counter()
             try:
                 search_q = route_res.search_query or message_text
+                logger.info(
+                    f"[WEB_SEARCH] provider={web_search_service.provider} query={search_q} enabled={str(web_search_service.enabled).lower()}"
+                )
                 search_resp = await web_search_service.search(search_q)
                 search_ms = (time.perf_counter() - t_search_start) * 1000
+                logger.info(f"[WEB_SEARCH] success=true results={len(search_resp.results)}")
 
                 searched = True
                 search_timestamp = search_resp.timestamp
@@ -166,7 +170,7 @@ class ChatService:
 
             except WebSearchNotConfiguredError:
                 search_ms = (time.perf_counter() - t_search_start) * 1000
-                logger.info("[WEB_SEARCH] Search requested but not configured. Returning polite fallback.")
+                logger.warning("[WEB_SEARCH] success=false error=not_configured")
                 if detected_lang == "telugu":
                     ai_reply = "నాకు ప్రస్తుతం live internet access అందుబాటులో లేదు."
                 elif detected_lang == "mixed":
@@ -177,7 +181,7 @@ class ChatService:
 
             except WebSearchEmptyResultError:
                 search_ms = (time.perf_counter() - t_search_start) * 1000
-                logger.info("[WEB_SEARCH] Empty search results. Returning polite fallback.")
+                logger.warning("[WEB_SEARCH] success=false error=empty_results")
                 if detected_lang == "telugu":
                     ai_reply = "ప్రస్తుతానికి దీని గురించి తాజా సమాచారం కనుగొనలేకపోయాను. కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి."
                 elif detected_lang == "mixed":
@@ -189,7 +193,7 @@ class ChatService:
 
             except WebSearchProviderError as prov_err:
                 search_ms = (time.perf_counter() - t_search_start) * 1000
-                logger.warning(f"[WEB_SEARCH] Provider error: {prov_err}")
+                logger.warning("[WEB_SEARCH] success=false error=provider_error")
                 if detected_lang == "telugu":
                     ai_reply = "నాకు ప్రస్తుతం live information access చేయడంలో సమస్య ఉంది. కొద్దిసేపటి తర్వాత మళ్లీ ప్రయత్నించండి."
                 elif detected_lang == "mixed":

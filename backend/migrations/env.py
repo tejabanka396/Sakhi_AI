@@ -3,7 +3,8 @@ import os
 from logging.config import fileConfig
 from alembic import context
 
-# Ensure backend folder is on sys.path
+# Ensure backend folder is on sys.path regardless of whether run from root or backend/
+sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('backend'))
 
 from app.core.config import settings

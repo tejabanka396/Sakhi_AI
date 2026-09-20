@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     EDGE_TTS_VOICE_EN_FEMALE: str = "en-IN-NeerjaNeural"
     EDGE_TTS_VOICE_EN_MALE: str = "en-IN-PrabhatNeural"
 
+    # Web Search Configuration (Live / Real-time Grounding)
+    WEB_SEARCH_ENABLED: bool = True
+    WEB_SEARCH_PROVIDER: str = "tavily"  # 'tavily' (primary), 'serper', or 'duckduckgo'
+    WEB_SEARCH_API_KEY: str = ""
+    WEB_SEARCH_MAX_RESULTS: int = 5
+    WEB_SEARCH_TIMEOUT_SECONDS: float = 6.0
+
     # SMS / OTP Gateway Configuration
     SMS_PROVIDER: str = "msg91"  # 'dev' (local development), 'msg91' (real SMS), 'twilio', or 'mock'
     MSG91_AUTH_KEY: str = ""

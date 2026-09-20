@@ -65,8 +65,29 @@ def sanitize_text_for_tts(text: str) -> str:
     # 1. Strip code blocks completely or replace with a conversational audio cue
     cleaned = re.sub(r"```[\w]*\n[\s\S]*?```", " [code snippet omitted] ", cleaned)
 
-    # Convert markdown links [Label](url) -> Label
-    cleaned = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", cleaned)
+    # Strip trailing Sources/References section (e.g. 'Sources: 1. ...' or '\nSources:\n1. ...')
+    cleaned = re.sub(r"(?i)(?:\n+|\b)\s*(?:sources?|references?|web\s*search\s*results?|మూలాలు|ఆధారాలు)\s*:[\s\S]*$", "", cleaned)
+
+    # Convert markdown links [Label](url) -> Label (if label is not a URL)
+    def _clean_markdown_link(match):
+        label = match.group(1).strip()
+        if re.match(r"^(?:https?://|www\.|\d+$)", label, re.IGNORECASE):
+            return ""
+        return label
+    cleaned = re.sub(r"\[([^\]]+)\]\([^\)]+\)", _clean_markdown_link, cleaned)
+
+    # Strip parenthesized or bracketed URLs: (https://...), [http://...]
+    cleaned = re.sub(r"[\(\[](?:https?://|www\.)[^\)\]]+[\)\]]", "", cleaned)
+
+    # Strip raw URLs (https://..., http://..., www....)
+    cleaned = re.sub(r"https?://\S+", "", cleaned)
+    cleaned = re.sub(r"\bwww\.[a-zA-Z0-9\-\._~:/?#\[\]@!$&'()*+,;=%]+", "", cleaned)
+
+    # Strip footnote reference markers like [1], [2], [1, 2]
+    cleaned = re.sub(r"\[\s*\d+(?:\s*,\s*\d+)*\s*\]", "", cleaned)
+
+    # Strip standalone technical source phrases
+    cleaned = re.sub(r"(?i)\b(?:sources?|references?|source\s*url|source\s*link|web\s*search\s*result|మూలాలు|ఆధారాలు)\b:?", "", cleaned)
 
     # Strip inline code `code` -> code
     cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)

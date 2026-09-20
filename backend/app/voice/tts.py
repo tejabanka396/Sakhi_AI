@@ -271,7 +271,7 @@ class TTSService:
             return data
 
         try:
-            audio_bytes = await asyncio.wait_for(_stream_edge_tts(), timeout=7.0)
+            audio_bytes = await asyncio.wait_for(_stream_edge_tts(), timeout=10.0)
             elapsed_ms = (time.perf_counter() - t0) * 1000
             if audio_bytes and len(audio_bytes) > 200:
                 logger.info(

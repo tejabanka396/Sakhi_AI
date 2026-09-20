@@ -1,5 +1,6 @@
 from typing import List, Optional
 import re
+from app.utils.datetime_utils import format_authoritative_runtime_context
 
 def detect_input_language(text: str) -> str:
     """
@@ -166,8 +167,48 @@ CRITICAL CORE RULES & BEHAVIOR:
    - Be a devoted, caring AI friend who is always here to listen, support, laugh, and learn.
    - Seamlessly weave in relevant facts you remember about {user_name} naturally.
 {memories_str}
+
+==================================================
+AUTHORITATIVE RUNTIME CLOCK:
+==================================================
+{format_authoritative_runtime_context()}
 """
     return prompt.strip()
+
+def build_web_search_grounding_prompt(query: str, search_items: list, detected_language: str = "english") -> str:
+    """
+    Builds strict evidence-grounding instruction for Gemini when web search results are available.
+    Gemini must ground its response in this retrieved evidence and never fabricate information.
+    """
+    evidence_blocks = []
+    for idx, item in enumerate(search_items, 1):
+        title = getattr(item, "title", "")
+        domain = getattr(item, "domain", "")
+        snippet = getattr(item, "snippet", "")
+        pub_date = getattr(item, "published_date", None)
+        date_str = f" [Date: {pub_date}]" if pub_date else ""
+        evidence_blocks.append(
+            f"[{idx}] Source: {domain} ({title}){date_str}\n"
+            f"    Snippet: {snippet}"
+        )
+
+    evidence_text = "\n\n".join(evidence_blocks)
+
+    return f"""==================================================
+EXTERNAL WEB SEARCH EVIDENCE (Live Retrieval):
+==================================================
+User Query: "{query}"
+
+Retrieved Live Sources:
+{evidence_text}
+
+CRITICAL GROUNDING RULES:
+1. Ground your answer ONLY in the facts directly supported by the search evidence above.
+2. If the evidence is insufficient, incomplete, or if sources conflict, clearly and honestly state what is confirmed and what is uncertain.
+3. DO NOT invent, extrapolate, or hallucinate facts, dates, scores, prices, or events not present in the evidence.
+4. Respond in the user's language style ({detected_language.upper()}) naturally and conversationally.
+5. DO NOT output URLs, links, or technical citation markers (like '[1]' or 'https://') in your answer. Keep your response conversational and voice-friendly.
+"""
 
 def build_title_generation_prompt(first_user_message: str, first_assistant_reply: str) -> str:
     return f"""Generate a concise, human-friendly conversation title (2 to 4 words) for this opening exchange between a user and their AI companion.

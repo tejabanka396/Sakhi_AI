@@ -1,4 +1,4 @@
-from typing import Optional, Literal
+from typing import Optional, Literal, List, Dict
 from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
@@ -18,3 +18,6 @@ class ChatResponse(BaseModel):
     title: Optional[str] = None
     sender: str = "assistant"
     language: Optional[str] = "auto"
+    searched: bool = False
+    sources: Optional[List[Dict[str, str]]] = None
+    search_timestamp: Optional[str] = None

@@ -55,6 +55,12 @@ export interface Conversation {
   last_message?: string;
 }
 
+export interface SearchSource {
+  title: string;
+  url: string;
+  domain: string;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -62,6 +68,9 @@ export interface Message {
   content: string;
   input_type: MessageInputType;
   created_at: string;
+  searched?: boolean;
+  sources?: SearchSource[];
+  search_timestamp?: string;
 }
 
 export interface Memory {
@@ -95,6 +104,9 @@ export interface ChatResponse {
   sender: 'assistant';
   audio_base64?: string | null;
   audio_url?: string | null;
+  searched?: boolean;
+  sources?: SearchSource[];
+  search_timestamp?: string;
 }
 
 export interface VoiceOption {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Copy, Bookmark, Check, CheckCheck } from 'lucide-react';
+import { Volume2, VolumeX, Copy, Bookmark, Check, CheckCheck, Globe, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { Message } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { useVoice } from '../../context/VoiceContext';
@@ -20,6 +20,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const { success, error } = useToast();
   const { speakResponse, isSpeaking, stopSpeaking } = useVoice();
 
@@ -91,6 +92,50 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           }`}
         >
           <p className="whitespace-pre-wrap break-words">{message.content}</p>
+
+          {/* Web Search Badge & Collapsible Sources */}
+          {!isUser && message.searched && (
+            <div className="mt-2.5 pt-2 border-t border-slate-800/80">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-950/60 text-cyan-400 border border-cyan-800/50">
+                  <Globe className="w-2.5 h-2.5" />
+                  Web Search
+                </span>
+                {message.sources && message.sources.length > 0 && (
+                  <button
+                    onClick={() => setShowSources((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 transition-colors py-0.5 px-1.5 rounded hover:bg-slate-800/50"
+                  >
+                    <span>Sources ({message.sources.length})</span>
+                    {showSources ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Collapsible Sources List */}
+              {showSources && message.sources && message.sources.length > 0 && (
+                <div className="mt-2 space-y-1.5 pl-1 border-l-2 border-cyan-500/30">
+                  {message.sources.map((src, idx) => (
+                    <a
+                      key={idx}
+                      href={src.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block group/src p-1.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800/60 transition-all text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-1 text-cyan-400 group-hover/src:text-cyan-300 font-medium truncate">
+                        <span className="truncate">{src.title || src.domain}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 opacity-60 group-hover/src:opacity-100" />
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                        {src.domain}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Timestamp & Icons Footer */}
           <div className={`flex items-center gap-1.5 mt-1 text-[11px] ${isUser ? 'justify-end text-cyan-300/80' : 'justify-end text-slate-400'}`}>

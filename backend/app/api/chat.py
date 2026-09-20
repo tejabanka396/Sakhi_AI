@@ -40,7 +40,10 @@ async def send_chat_message(
             gender=result.get("gender"),
             title=result.get("title"),
             sender="assistant",
-            language=result.get("language", "auto")
+            language=result.get("language", "auto"),
+            searched=result.get("searched", False),
+            sources=result.get("sources"),
+            search_timestamp=result.get("search_timestamp")
         )
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}", exc_info=True)

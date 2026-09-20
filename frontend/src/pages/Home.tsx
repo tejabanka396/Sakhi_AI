@@ -106,7 +106,10 @@ export const Home: React.FC = () => {
         sender: 'assistant',
         content: displayText,
         input_type: 'text',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        searched: res.searched,
+        sources: res.sources,
+        search_timestamp: res.search_timestamp
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
@@ -154,7 +157,10 @@ export const Home: React.FC = () => {
         sender: 'assistant',
         content: displayText,
         input_type: 'text',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        searched: res.searched,
+        sources: res.sources,
+        search_timestamp: res.search_timestamp
       };
       setMessages((prev) => [...prev, assistantMsg]);
 

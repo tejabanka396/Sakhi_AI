@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Base API URL from environment variable or proxy fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// Base API URL from environment variable or proxy fallback (strips any trailing slash)
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

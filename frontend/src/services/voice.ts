@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, API_BASE_URL } from './api';
 
 export interface VoiceOption {
   voice_id: string;
@@ -80,8 +80,7 @@ export const voiceService = {
   },
 
   getPreviewUrl(voiceId: string): string {
-    const base = import.meta.env.VITE_API_URL || '';
-    return `${base}/api/voice/preview/${voiceId}`;
+    return `${API_BASE_URL}/api/voice/preview/${voiceId}`;
   },
 
   async transcribe(audioBlob: Blob): Promise<string> {
